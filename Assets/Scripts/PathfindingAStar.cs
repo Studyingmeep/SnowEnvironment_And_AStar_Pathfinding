@@ -1,88 +1,47 @@
 using System;
 using System.Collections;
-using UnityEngine;
 using System.Collections.Generic;
-using System.Diagnostics;
-using Debug = UnityEngine.Debug;
+using UnityEngine;
 
 public class PathfindingAStar : MonoBehaviour
 {
-    public Transform seeker;
-    public Transform target;
+    PathRequestManager _pathRequestManager;
+    GridAStar _grid;
     
     // Using a list to optimise the search, but aiming to use a heap instead
     private Heap<NodeAStar> _openSet;
     // Using hashes to optimise the search
     private HashSet<NodeAStar> _closedSet = new HashSet<NodeAStar>();
     
-    GridAStar _grid;
-    private bool _isInitialized = false;
-    
     private void Awake()
     {
+        _pathRequestManager = GetComponent<PathRequestManager>();
         _grid = GetComponent<GridAStar>();
-    }
-
-    private void Start()
-    {
-        // Initialise the heap after the grid has been created in Start
-        InitialisePathfinding();
-    }
-
-    private void Update()
-    {
-        if (Input.GetKeyDown(KeyCode.T) && _isInitialized)
-        {
-            FindPath(seeker.position, target.position);
-        }
+        _openSet = new Heap<NodeAStar>(_grid.MaxSize);
     }
 
     public void StartFindPath(Vector3 startPos, Vector3 targetPos)
     {
         StartCoroutine(FindPath(startPos, targetPos));
     }
-    
-    private void InitialisePathfinding()
-    {
-        // Make sure _grid is initialised
-        if (_grid.MaxSize > 0)
-        {
-            _openSet = new Heap<NodeAStar>(_grid.MaxSize);
-            _isInitialized = true;
-            Debug.Log($"Pathfinding initialized with heap size: {_grid.MaxSize}");
-        }
-        else
-        {
-            // _grid is not ready yet, try again later
-            Debug.LogWarning("Grid not initialized yet. Will retry initialization later.");
-            Invoke("InitialisePathfinding", 0.5f);
-        }
-    }
 
     IEnumerator FindPath(Vector3 startPos, Vector3 targetPos)
     {
-        // Safety check
-        if (!_isInitialized || _openSet == null)
-        {
-            Debug.LogError("Pathfinding system not initialized yet. Cannot find path.");
-            yield return null;
-        }
-
-        Stopwatch sw = new Stopwatch();
-        sw.Start();
+        Vector3[] waypoints = Array.Empty<Vector3>();
+        bool pathSuccess = false;
         
         // Clear collections instead of creating new ones
-        if (_openSet != null)
+        _openSet.Clear();
+        _closedSet.Clear();
+
+        NodeAStar startNode = _grid.GetNodeFromWorldPoint(startPos);
+        NodeAStar targetNode = _grid.GetNodeFromWorldPoint(targetPos);
+
+        // Check if startNode and targetNode are walkable before continuing
+        if (startNode.Walkable && targetNode.Walkable)
         {
-            _openSet.Clear();
-            _closedSet.Clear();
-
-            NodeAStar startNode = _grid.GetNodeFromWorldPoint(startPos);
-            NodeAStar targetNode = _grid.GetNodeFromWorldPoint(targetPos);
-
-            // Set initial G cost for start node to prevent potential issues
+            // Set initial G cost for start node
             startNode.GCost = 0;
-
             _openSet.Add(startNode);
 
             while (_openSet.Count > 0)
@@ -92,10 +51,8 @@ public class PathfindingAStar : MonoBehaviour
 
                 if (currentNode == targetNode)
                 {
-                    sw.Stop();
-                    Debug.Log("Path found " + sw.ElapsedMilliseconds + "ms");
-                    RetracePath(startNode, targetNode);
-                    yield return null;
+                    pathSuccess = true;
+                    break;
                 }
 
                 // Check all neighbours of the currentNode and add them to the openSet if walkable and not in the _closedSet
@@ -107,7 +64,6 @@ public class PathfindingAStar : MonoBehaviour
                     }
 
                     int newMovementCostToNeighbour = currentNode.GCost + GetDistance(currentNode, neighbour);
-
                     if (newMovementCostToNeighbour < neighbour.GCost || !_openSet.Contains(neighbour))
                     {
                         neighbour.GCost = newMovementCostToNeighbour;
@@ -127,12 +83,16 @@ public class PathfindingAStar : MonoBehaviour
                 }
             }
         }
-
         yield return null;
+        if (pathSuccess)
+        {
+            waypoints = RetracePath(startNode, targetNode);
+        }
+        _pathRequestManager.FinishedProcessingPath(waypoints, pathSuccess);
     }
 
     // Retrace the path after finding the end target node
-    void RetracePath(NodeAStar startNode, NodeAStar endNode)
+    Vector3[] RetracePath(NodeAStar startNode, NodeAStar endNode)
     {
         List<NodeAStar> path = new List<NodeAStar>();
         NodeAStar currentNode = endNode;
@@ -142,9 +102,27 @@ public class PathfindingAStar : MonoBehaviour
             path.Add(currentNode);
             currentNode = currentNode.Parent;
         }
-        path.Add(startNode); // This line includes the start node, can be removed if not needed
-        path.Reverse();
-        _grid.Path = path;
+
+        Vector3[] waypoints = SimplifyPath(path);
+        Array.Reverse(waypoints);
+        return waypoints;
+    }
+
+    Vector3[] SimplifyPath(List<NodeAStar> path)
+    {
+        List<Vector3> waypoints = new List<Vector3>();
+        Vector2 directionOld = Vector2.zero;
+
+        for (int i = 1; i < path.Count; i++)
+        {
+            Vector2 directionNew = new Vector2(path[i-1].GridX - path[i].GridX, path[i-1].GridY - path[i].GridY);
+            if (directionNew != directionOld)
+            {
+                waypoints.Add(path[i].WorldPosition);
+            }
+            directionOld = directionNew;
+        }
+        return waypoints.ToArray();
     }
     
     // Calculate the distance between 2 nodes

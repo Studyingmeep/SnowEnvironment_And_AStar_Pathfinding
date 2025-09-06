@@ -1,11 +1,11 @@
 using UnityEngine;
 using System.Collections.Generic;
+using UnityEngine.Serialization;
 
 public class GridAStar : MonoBehaviour
 {
-    public bool onlyDisplayPathGizmos;
+    public bool displayGridGizmos;
     public LayerMask unwalkableMask;
-    
     // Recommend keeping this less than 100x100
     public Vector2 gridWorldSize;
     private int _gridSizeX, _gridSizeY;
@@ -16,7 +16,7 @@ public class GridAStar : MonoBehaviour
     
     private NodeAStar[,] _grid; // Our 2D Array (grid) of nodes
 
-    void Start()
+    void Awake()
     {
         _nodeDiameter = nodeRadius * 2;
         _gridSizeX = Mathf.RoundToInt(gridWorldSize.x / _nodeDiameter);
@@ -83,37 +83,18 @@ public class GridAStar : MonoBehaviour
         return _grid[x, y];
     }
     
-    public List<NodeAStar> Path;
     // Debug function to draw the grid in the scene view
     private void OnDrawGizmos()
     {
         Gizmos.DrawWireCube(transform.position, new Vector3(gridWorldSize.x, 1, gridWorldSize.y));
-
-        if (onlyDisplayPathGizmos)
+        
+        if (_grid != null && displayGridGizmos)
         {
-            if (Path != null)
-            {
-                foreach (NodeAStar n in Path)
-                {
-                    Gizmos.color = Color.black;
-                    Gizmos.DrawCube(n.WorldPosition, Vector3.one * (_nodeDiameter - .1f));
-                }
-            }
-        }
-        else
-        {
-            if (_grid == null) return;
             foreach (NodeAStar n in _grid)
-            {
+            { 
                 Gizmos.color = n.Walkable ? Color.white : Color.red;
-                if (Path != null)
-                {
-                    if (Path.Contains(n))
-                        Gizmos.color = Color.black;
-                }
-
                 Gizmos.DrawCube(n.WorldPosition, Vector3.one * (_nodeDiameter - .1f));
             }
-        }
+        };
     }
 }

@@ -5,7 +5,8 @@ public class NodeAStar : IHeapItem<NodeAStar>
 {
     public bool Walkable;
     public Vector3 WorldPosition;
-    public int GridX, GridY;
+    public int GridX; 
+    public int GridY;
     
     // Initialize GCost to int.MaxValue so any new path is better
     public int GCost = int.MaxValue;

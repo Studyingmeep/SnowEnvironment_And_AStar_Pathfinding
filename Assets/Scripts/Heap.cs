@@ -48,10 +48,9 @@ public class Heap<T> where T : IHeapItem<T>
         if (item.HeapIndex < _currentItemCount)
         {
             return Equals(_items[item.HeapIndex], item);
-        } else
-        {
-            return false;
         }
+        return false;
+        
     }
 
     void SortDown(T item)
@@ -120,8 +119,8 @@ public class Heap<T> where T : IHeapItem<T>
     }
 }
 
-public interface IHeapItem<in T> : IComparable<T>
+public interface IHeapItem<T> : IComparable<T>
 {
     int HeapIndex { get; set; }
-    new int CompareTo(T other);
+    // new int CompareTo(T other);
 }
