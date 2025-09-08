@@ -63,7 +63,7 @@ public class PathfindingAStar : MonoBehaviour
                         continue;
                     }
 
-                    int newMovementCostToNeighbour = currentNode.GCost + GetDistance(currentNode, neighbour);
+                    int newMovementCostToNeighbour = currentNode.GCost + GetDistance(currentNode, neighbour) + neighbour.movementPenalty;
                     if (newMovementCostToNeighbour < neighbour.GCost || !_openSet.Contains(neighbour))
                     {
                         neighbour.GCost = newMovementCostToNeighbour;

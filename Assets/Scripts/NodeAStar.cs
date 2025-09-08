@@ -7,18 +7,20 @@ public class NodeAStar : IHeapItem<NodeAStar>
     public Vector3 WorldPosition;
     public int GridX; 
     public int GridY;
+    public int movementPenalty;
     
     // Initialize GCost to int.MaxValue so any new path is better
     public int GCost = int.MaxValue;
     public int HCost = 0;
     public NodeAStar Parent;
 
-    public NodeAStar(bool walkable, Vector3 worldPosition, int gridX, int gridY)
+    public NodeAStar(bool walkable, Vector3 worldPosition, int gridX, int gridY, int penalty)
     {
         Walkable = walkable;
         WorldPosition = worldPosition;
         GridX = gridX;
         GridY = gridY;
+        movementPenalty = penalty;
     }
 
     public int FCost => GCost + HCost;

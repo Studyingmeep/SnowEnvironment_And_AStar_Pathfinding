@@ -6,9 +6,13 @@ public class GridAStar : MonoBehaviour
 {
     public bool displayGridGizmos;
     public LayerMask unwalkableMask;
+
+    private LayerMask _walkableMask;
     // Recommend keeping this less than 100x100
     public Vector2 gridWorldSize;
     private int _gridSizeX, _gridSizeY;
+    public TerrainType[] walkableRegions;
+    private Dictionary<int, int> _walkableRegionsDict = new Dictionary<int, int>();
     
     [Range(0.1f, 10)] // Value needs to be minimum 0.1f to avoid overflowing, floats are rounded to int during run-time.
     public float nodeRadius; 
@@ -21,6 +25,13 @@ public class GridAStar : MonoBehaviour
         _nodeDiameter = nodeRadius * 2;
         _gridSizeX = Mathf.RoundToInt(gridWorldSize.x / _nodeDiameter);
         _gridSizeY = Mathf.RoundToInt(gridWorldSize.y / _nodeDiameter);
+
+        foreach (TerrainType region in walkableRegions)
+        {
+            _walkableMask.value |= region.terrainMask.value;
+            _walkableRegionsDict.Add((int)Mathf.Log(region.terrainMask.value, 2), region.terrainPenalty);
+        }
+        
         CreateGrid();
     }
 
@@ -39,8 +50,20 @@ public class GridAStar : MonoBehaviour
             {
                 // Calculate the world position of each node, and then check if it's walkable or not'
                 Vector3 worldPoint = worldBottomLeft + Vector3.right * (x * _nodeDiameter + nodeRadius) + Vector3.forward * (y * _nodeDiameter + nodeRadius);
-                bool walkable = !(Physics.CheckSphere(worldPoint, nodeRadius, unwalkableMask));
-                _grid[x, y] = new NodeAStar(walkable, worldPoint, x, y);
+                bool walkable = !Physics.CheckSphere(worldPoint, nodeRadius, unwalkableMask);
+                
+                int movementPenalty = 0;
+
+                if (walkable)
+                {
+                    Ray ray = new Ray(worldPoint + Vector3.up * 250, Vector3.down);
+                    if (Physics.Raycast(ray, out var hit, 500, _walkableMask))
+                    {
+                        _walkableRegionsDict.TryGetValue(hit.collider.gameObject.layer, out movementPenalty);
+                    }
+                }
+                
+                _grid[x, y] = new NodeAStar(walkable, worldPoint, x, y, movementPenalty);
             }
         }
     }
@@ -97,4 +120,11 @@ public class GridAStar : MonoBehaviour
             }
         };
     }
+}
+
+[System.Serializable]
+public class TerrainType
+{
+    public LayerMask terrainMask;
+    public int terrainPenalty;
 }
